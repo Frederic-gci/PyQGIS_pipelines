@@ -1,12 +1,19 @@
+# System imports
+import sys
+import os
+import re
+import glob
+
+# QGIS imports
 from qgis.core import *
 import qgis.utils
 from qgis.analysis import *
 from qgis.PyQt.QtCore import QVariant
-import os
-import re
-import sys
-import glob
+sys.path.append('C:\\OSGeo4W64\\apps\\qgis\\python\\plugins')
+import processing
+from processing.core.Processing import Processing
 
+# local imports
 import utilities as utils
 
 def coverage(file, outputDir):
@@ -21,10 +28,6 @@ def coverage(file, outputDir):
     QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
     qgs = QgsApplication([], False)
     QgsApplication.initQgis()
-    ## Retrieve algorithm and add them with Processing.initialize()
-    sys.path.append('C:\\OSGeo4W64\\apps\\qgis\\python\\plugins')
-    import processing
-    from processing.core.Processing import Processing
     Processing.initialize()
     QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
     #
@@ -142,3 +145,17 @@ def coverage(file, outputDir):
     for feat in feats:
         layer.dataProvider().changeAttributeValues({ feat.id() : {1: int(scenario)} })
     del attributeIndex, feats, layer
+
+
+def finalMerge(fileTemplate, output):
+    QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
+    qgs = QgsApplication([], False)
+    QgsApplication.initQgis()
+    QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
+    fileList = glob.glob(fileTemplate)
+    parameters = {
+        'LAYERS': fileList,
+        'CRS': 'EPSG:2949',
+        'OUTPUT': output
+    }
+    processing.run("native:mergevectorlayers", parameters)
