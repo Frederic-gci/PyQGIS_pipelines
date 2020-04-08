@@ -1,6 +1,6 @@
 # QGIS pipelines 
 
-PyQGIS based pipelines for the transformation of geospatial data for the AURIGE and ORACLE-2 projects.
+Python + QGIS based pipeline for the transformation of geospatial data for the AURIGE and ORACLE-2 projects.
 
 ## Prerequisites
 
