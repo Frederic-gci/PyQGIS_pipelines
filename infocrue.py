@@ -3,6 +3,7 @@ import sys
 import os
 import re
 import glob
+import warnings
 
 # QGIS imports
 from qgis.core import *
@@ -10,8 +11,6 @@ import qgis.utils
 from qgis.analysis import *
 from qgis.PyQt.QtCore import QVariant
 sys.path.append('C:\\OSGeo4W64\\apps\\qgis\\python\\plugins')
-import processing
-from processing.core.Processing import Processing
 
 # local imports
 import utilities as utils
@@ -28,6 +27,10 @@ def coverage(file, outputDir):
     QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
     qgs = QgsApplication([], False)
     QgsApplication.initQgis()
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        import processing
+        from processing.core.Processing import Processing
     Processing.initialize()
     QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
     #
@@ -35,8 +38,9 @@ def coverage(file, outputDir):
     raster = QgsRasterLayer(file)
     raster.setCrs(QgsCoordinateReferenceSystem("EPSG:2949"))
     #
-    ## Binarize the raster (1 if value, 0 otherwise) (native:reclassifybytable)
-    output = outputDir + 'tmp_' + scenario + '.tif'
+    ## Binarize the raster (1 if value, 0 otherwise)
+    # (native:reclassifybytable)
+    outputBin = outputDir + 'tmp_' + scenario + '.tif'
     parameters = {
         'INPUT_RASTER': raster,
         'RASTER_BAND':1,
@@ -44,13 +48,14 @@ def coverage(file, outputDir):
         'NO_DATA':0,
         'RANGE_BOUNDARIES':2,
         'DATA_TYPE':0,
-        'OUTPUT': output
+        'OUTPUT': outputBin
     }
     processing.run('native:reclassifybytable', parameters)
-    del(raster)
+    del raster
     #
-    ## Compress the raster (gdal:translate)
-    input = output 
+    ## Compress the binary raster
+    # (gdal:translate)
+    input = outputBin
     output = outputDir + 'A_BIN_' + scenario + '.tif'
     parameters = {
         'INPUT': input,
@@ -60,25 +65,42 @@ def coverage(file, outputDir):
         'OUTPUT': output
     }
     processing.run('gdal:translate', parameters)
-    try:
-        os.rm(input)
-    except:
-        pass
     #
-    ## Remove small puddles (less than 224m2, so less than 15m * 15m) (gdal:sieve)
+    ## Remove small puddles (less than 500m2) and small islands (less than 25m)
+    # (gdal:sieve, native:rasterbooleanand)
     input = output
-    output = outputDir + 'tmp2_'+ scenario + '.tif'
+    output25 = outputDir + 'tmp_sieved25_'+ scenario + '.tif'
+    output500 = outputDir + 'tmp_sieved500_' + scenario + '.tif'
     parameters = {
         'INPUT': input,
-        'THRESHOLD':224,
+        'THRESHOLD':25,
         'EIGHT_CONNECTEDNESS':False,
         'NO_MASK':True,
-        'OUTPUT': output
+        'OUTPUT': output25
     }
     processing.run('gdal:sieve', parameters)
+    parameters = {
+        'INPUT': input,
+        'THRESHOLD':500,
+        'EIGHT_CONNECTEDNESS':False,
+        'NO_MASK':True,
+        'OUTPUT': output500
+    }
+    processing.run('gdal:sieve', parameters)
+    outputSum = outputDir + 'tmp_summed_' + scenario + '.tif'
+    parameters = {
+        'INPUT': [ output25, output500 ],
+        'REF_LAYER': input,
+        'NODATA_AS_FALSE':False,
+        'NO_DATA':0,
+        'DATA_TYPE':0,
+        'OUTPUT': outputSum
+    }
+    processing.run("native:rasterbooleanand", parameters)
     #
-    ## Compress the raster (gdal:translate)
-    input = output
+    ## Compress the sieved raster
+    # (gdal:translate)
+    input = outputSum
     output = outputDir + 'B_SIEVED_' + scenario + '.tif'
     parameters = {
         'INPUT': input,
@@ -88,10 +110,12 @@ def coverage(file, outputDir):
         'OUTPUT': output
     }
     processing.run('gdal:translate', parameters)
-    try:
-        os.remove(input)
-    except:
-        pass
+    for file in (outputBin, output25, output500, outputSum):
+        try:
+            os.remove(file)
+        except Exception as e:
+            print("Cannot delete " + file + ": " + e)
+    del outputBin, output25, output500, outputSum
     #
     ## Polygonize the coverage (gdal:polygonize)
     input = output
@@ -147,15 +171,36 @@ def coverage(file, outputDir):
     del attributeIndex, feats, layer
 
 
-def finalMerge(fileTemplate, output):
+def finalMerge(fileTemplate, outputFile):
     QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
     qgs = QgsApplication([], False)
     QgsApplication.initQgis()
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        import processing
+        from processing.core.Processing import Processing
     QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
     fileList = glob.glob(fileTemplate)
     parameters = {
         'LAYERS': fileList,
         'CRS': 'EPSG:2949',
-        'OUTPUT': output
+        'OUTPUT': outputFile
     }
     processing.run("native:mergevectorlayers", parameters)
+
+def finalSimplification(inputFile, outputFile):
+    QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
+    qgs = QgsApplication([], False)
+    QgsApplication.initQgis()
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        import processing
+        from processing.core.Processing import Processing
+    QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
+    parameters = {
+        'INPUT': inputFile,
+        'METHOD':0,
+        'TOLERANCE':5,
+        'OUTPUT': outputFile
+    }
+    processing.run("native:simplifygeometries", parameters)
