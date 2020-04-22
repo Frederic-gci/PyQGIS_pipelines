@@ -15,15 +15,21 @@ sys.path.append('C:\\OSGeo4W64\\apps\\qgis\\python\\plugins')
 # local imports
 import utilities as utils
 
-def coverage(file, outputDir):
-    #
-    # Start
-    basename = os.path.basename(file)
+def coverage(inputFile, outputDir):
+    ## This function, called on a WSE file, will
+    ## do some post-treatment (remove small 'puds' or 'islands')
+    ## and produce water coverage documents.
+    ## It will produce three files: a compressed binary of
+    ## the raw coverage; a compressed binary of the post-treated
+    ## coverage; and a multi-polygon of the coverage.
+
+    # Extract scenario number
+    basename = os.path.basename(inputFile)
     scenario = re.findall(r'\(PF\s*\d+\)', basename)
     scenario = re.findall(r'\d+', scenario[0])[0]
     print( utils.now() + "Initializing coverage pipeline for scenario " + scenario + ".")
-    #
-    ## Initialise QgsApplication and processing modules
+
+    # Initialise QgsApplication and processing modules
     QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
     qgs = QgsApplication([], False)
     QgsApplication.initQgis()
@@ -33,13 +39,12 @@ def coverage(file, outputDir):
         from processing.core.Processing import Processing
     Processing.initialize()
     QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
-    #
-    ## Load as layer and set CRS
-    raster = QgsRasterLayer(file)
+
+    # Load as layer and set CRS
+    raster = QgsRasterLayer(inputFile)
     raster.setCrs(QgsCoordinateReferenceSystem("EPSG:2949"))
-    #
-    ## Binarize the raster (1 if value, 0 otherwise)
-    # (native:reclassifybytable)
+
+    # Binarize the raster (1 if value, 0 otherwise)
     outputBin = outputDir + 'tmp_' + scenario + '.tif'
     parameters = {
         'INPUT_RASTER': raster,
@@ -52,9 +57,8 @@ def coverage(file, outputDir):
     }
     processing.run('native:reclassifybytable', parameters)
     del raster
-    #
-    ## Compress the binary raster
-    # (gdal:translate)
+
+    # Compress the binary raster
     input = outputBin
     output = outputDir + 'A_BIN_' + scenario + '.tif'
     parameters = {
@@ -65,9 +69,8 @@ def coverage(file, outputDir):
         'OUTPUT': output
     }
     processing.run('gdal:translate', parameters)
-    #
-    ## Remove small puddles (less than 500m2) and small islands (less than 25m)
-    # (gdal:sieve, native:rasterbooleanand)
+
+    # Remove small puddles (less than 500m2) and small islands (less than 25m)
     input = output
     output25 = outputDir + 'tmp_sieved25_'+ scenario + '.tif'
     output500 = outputDir + 'tmp_sieved500_' + scenario + '.tif'
@@ -97,9 +100,8 @@ def coverage(file, outputDir):
         'OUTPUT': outputSum
     }
     processing.run("native:rasterbooleanand", parameters)
-    #
-    ## Compress the sieved raster
-    # (gdal:translate)
+
+    # Compress the sieved raster
     input = outputSum
     output = outputDir + 'B_SIEVED_' + scenario + '.tif'
     parameters = {
@@ -116,8 +118,8 @@ def coverage(file, outputDir):
         except Exception as e:
             print("Cannot delete " + file + ": " + e)
     del outputBin, output25, output500, outputSum
-    #
-    ## Polygonize the coverage (gdal:polygonize)
+
+    # Polygonize the coverage (gdal:polygonize)
     input = output
     output = outputDir + 'tmp_polygonize_' + scenario + '.shp'
     parameters = {
@@ -128,7 +130,7 @@ def coverage(file, outputDir):
         'OUTPUT':output
     }
     processing.run('gdal:polygonize', parameters)
-    #
+
     # Delete non-covered regions (DN=0)
     layer = QgsVectorLayer(output, '', 'ogr')
     feats = layer.getFeatures()
@@ -138,9 +140,8 @@ def coverage(file, outputDir):
             toDelete.append(feat.id())
     layer.dataProvider().deleteFeatures(toDelete)
     del toDelete, feats, layer
-    #
+
     # Fix geometries, since polygonize can create 'ring self-intersections' 
-    # (native:fixgeometries)
     input = output
     output = outputDir + 'tmp_fixGeometry_' + scenario + '.shp'
     parameters = {
@@ -148,7 +149,7 @@ def coverage(file, outputDir):
         'OUTPUT': output
     }
     processing.run('native:fixgeometries', parameters)
-    #
+
     # Merge polygons into multipart (native:collect)
     input = output
     output = outputDir + "C_poly_" + scenario + '.shp'
@@ -158,7 +159,7 @@ def coverage(file, outputDir):
         'OUTPUT': output
     }
     processing.run('native:collect', parameters)
-    #
+
     # Add attribute for scenario number
     layer = QgsVectorLayer(output, '', 'ogr')
     layer.setCrs(QgsCoordinateReferenceSystem("EPSG:2949"))
@@ -172,6 +173,9 @@ def coverage(file, outputDir):
 
 
 def finalMerge(fileTemplate, outputFile):
+    ## Given a template to get all the multipolygon shapefile created by
+    ## 'coverage', this function will merge them all in outputFile.
+
     QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
     qgs = QgsApplication([], False)
     QgsApplication.initQgis()
@@ -189,6 +193,10 @@ def finalMerge(fileTemplate, outputFile):
     processing.run("native:mergevectorlayers", parameters)
 
 def finalSimplification(inputFile, outputFile):
+    ## This function takes the inputFile (expected to be
+    ## the lossless multipolygon file produced by finalMerge) and 
+    ## apply geometry simplification to produce outputFile.
+
     QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
     qgs = QgsApplication([], False)
     QgsApplication.initQgis()

@@ -2,13 +2,5 @@
 
 ## Python
 __pycache__
-*.py[cod]
-*$py.class
-.python-version
+.vscode
 
-### VisualStudioCode ###
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
