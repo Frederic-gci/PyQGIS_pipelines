@@ -54,20 +54,10 @@ buildings = QgsVectorLayer(
 filled_coverages = QgsVectorLayer(
   "D:/Results/INFO-Crue/0508_JacquesCartier/Couverture/JC_raw_coverage_filled_32198.shp",'', 'ogr')
 
-for scenario_num in range(1,158):
-  extended_WSE_path = f'D:/Results/INFO-Crue/0508_JacquesCartier/ExtendedWSE/PF{scenario_num}.out.tif'
-  corrected_WSE_path = f'D:/Results/INFO-Crue/0508_JacquesCartier/ExtendedWSE/PF{scenario_num}_32198.out.tif'
-  processing.run('gdal:warpreproject', {
-    'INPUT': extended_WSE_path,
-    'SOURCE_CRS': 'EPSG:2949',
-    'TARGET_CRS':'EPSG:32198',
-    # 'OPTIONS':"-co COMPRESS=DEFLATE"
-    'OPTIONS':"COMPRESS=DEFLATE|PREDICTOR=2",
-    'OUTPUT': corrected_WSE_path
-  })
-
-
-  extended_WSE = QgsRasterLayer(corrected_WSE_path)
+for scenario_num in range(100,102):
+  extended_WSE_path=(
+    f'D:/Results/INFO-Crue/0508_JacquesCartier/ExtendedWSE/32198/PF{scenario_num}.32198.tif')
+  extended_WSE = QgsRasterLayer(extended_WSE_path)
 
   coverage = next(coverages.getFeatures(f'"scIdx" = {scenario_num} '))
   filled_coverage = next(filled_coverages.getFeatures(f'"scIdx" = {scenario_num} '))
