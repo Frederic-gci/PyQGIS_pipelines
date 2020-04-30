@@ -13,10 +13,10 @@ I want a table with these information in each row:
 
 To do : 
 loop over scenario
-  load the proper wse
-  reproject the wse to 32198
-  select the coverage feature
-  select the filled coverage feature
+  load the proper extendedWSE
+  calculate zonal statistics
+  generate the ids of building that intersect with the coverage for the scenario
+  generate the ids of features that intersect with filled coverage for the scenario
 
   loop over buildings:
     id = get building id
@@ -25,11 +25,12 @@ loop over scenario
     Eisol = wheter the building intersect with filled AND NOT Esurf.
 
     write to the table.
-
 """
+
 # System imports
 import sys
 import os
+import warnings
 
 # QGIS imports
 from qgis.core import *
@@ -42,27 +43,26 @@ fh = open("output.txt", "w+")
 QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
 qgs = QgsApplication([], False)
 qgs.initQgis()
-import processing
-from processing.core.Processing import Processing
+with warnings.catch_warnings():
+  warnings.filterwarnings("ignore", category=DeprecationWarning)
+  import processing
+  from processing.core.Processing import Processing
 Processing.initialize()
 QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
 
 coverages = QgsVectorLayer(
   "D:/Results/INFO-Crue/0508_JacquesCartier/Couverture/JC_raw_coverage_32198.shp",'', 'ogr')
+
 buildings = QgsVectorLayer(
-  "C:/A_DATA/tests/0508_JacquesCartier_buildings.shp", '', 'ogr')
+  "C:/A_DATA/tests/0508_batiment.shp", '', 'ogr')
+
 filled_coverages = QgsVectorLayer(
   "D:/Results/INFO-Crue/0508_JacquesCartier/Couverture/JC_raw_coverage_filled_32198.shp",'', 'ogr')
 
-for scenario_num in range(100,102):
+for scenario_num in range(1,152):
   extended_WSE_path=(
     f'D:/Results/INFO-Crue/0508_JacquesCartier/ExtendedWSE/32198/PF{scenario_num}.32198.tif')
   extended_WSE = QgsRasterLayer(extended_WSE_path)
-
-  coverage = next(coverages.getFeatures(f'"scIdx" = {scenario_num} '))
-  filled_coverage = next(filled_coverages.getFeatures(f'"scIdx" = {scenario_num} '))
-  coverage_geom = coverage.geometry()
-  filled_coverage_geom = filled_coverage.geometry()
 
   # Add zonal stats
   zonalstats = QgsZonalStatistics(
@@ -74,35 +74,23 @@ for scenario_num in range(100,102):
   )
   zonalstats.calculateStatistics(None)
 
-  # Get esurf ids.
-  processing.run('qgis:selectbyattribute', {
-    'INPUT':coverages,
-    'FIELD':'scIdx',
-    'OPERATOR':0,
-    'VALUE':scenario_num
-  } )
-  tmp_coverage_layer = processing.run('native:saveselectedfeatures', 
-    {'INPUT':coverages, 'OUTPUT':f'coverage_{scenario_num}' })
+  # Get Esurf ids.
   processing.run('native:selectbylocation', {
     'INPUT': buildings, 
     'PREDICATE': [0],
-    'INTERSECT': tmp_coverage_layer['OUTPUT'],
+    'INTERSECT': (
+      f"D:/Results/INFO-Crue/0508_JacquesCartier/Couverture/JC_raw_coverage_32198.shp"
+      f"|layerid=0|subset=\"scIdx\"={scenario_num}"),
     'METHOD':0, })
   esurf_ids=buildings.selectedFeatureIds()
 
-  # Get eisol ids
-  processing.run('qgis:selectbyattribute', {
-    'INPUT':filled_coverages,
-    'FIELD':'scIdx',
-    'OPERATOR':0,
-    'VALUE':scenario_num
-  } )
-  tmp_filled_coverage = processing.run('native:saveselectedfeatures', 
-    {'INPUT':filled_coverages, 'OUTPUT':f'filled_coverage_{scenario_num}' })
+  # Get Eisol ids
   processing.run('native:selectbylocation', {
     'INPUT': buildings, 
     'PREDICATE': [0],
-    'INTERSECT': tmp_filled_coverage['OUTPUT'],
+    'INTERSECT': (
+      f"D:/Results/INFO-Crue/0508_JacquesCartier/Couverture/JC_raw_coverage_filled_32198.shp"
+      f"|layerid=0|subset=\"scIdx\"={scenario_num}"),
     'METHOD':0, })
   eisol_ids=buildings.selectedFeatureIds()
 
