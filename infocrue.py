@@ -1,4 +1,5 @@
 # System imports
+import utilities as utils
 import sys
 import os
 import re
@@ -13,21 +14,21 @@ from qgis.PyQt.QtCore import QVariant
 sys.path.append('C:\\OSGeo4W64\\apps\\qgis\\python\\plugins')
 
 # local imports
-import utilities as utils
+
 
 def coverage(inputFile, outputDir):
-    ## This function, called on a WSE file, will
-    ## do some post-treatment (remove small 'puds' or 'islands')
-    ## and produce water coverage documents.
-    ## It will produce three files: a compressed binary of
-    ## the raw coverage; a compressed binary of the post-treated
-    ## coverage; and a multi-polygon of the coverage.
+    # This function, called on a WSE file, will
+    # do some post-treatment (remove small 'puds' or 'islands')
+    # and produce water coverage documents.
+    # It will produce three files: a compressed binary of
+    # the raw coverage; a compressed binary of the post-treated
+    # coverage; and a multi-polygon of the coverage.
 
     # Extract scenario number
     basename = os.path.basename(inputFile)
     scenario = re.findall(r'\(PF\s*\d+\)', basename)
     scenario = re.findall(r'\d+', scenario[0])[0]
-    print( utils.now() + "Initializing coverage pipeline for scenario " + scenario + ".")
+    print(utils.now() + "Initializing coverage pipeline for scenario " + scenario + ".")
 
     # Initialise QgsApplication and processing modules
     QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
@@ -48,11 +49,11 @@ def coverage(inputFile, outputDir):
     outputBin = outputDir + 'tmp_' + scenario + '.tif'
     parameters = {
         'INPUT_RASTER': raster,
-        'RASTER_BAND':1,
-        'TABLE': [5,254,1],
-        'NO_DATA':0,
-        'RANGE_BOUNDARIES':2,
-        'DATA_TYPE':0,
+        'RASTER_BAND': 1,
+        'TABLE': [5, 254, 1],
+        'NO_DATA': 0,
+        'RANGE_BOUNDARIES': 2,
+        'DATA_TYPE': 0,
         'OUTPUT': outputBin
     }
     processing.run('native:reclassifybytable', parameters)
@@ -63,40 +64,40 @@ def coverage(inputFile, outputDir):
     output = outputDir + 'A_BIN_' + scenario + '.tif'
     parameters = {
         'INPUT': input,
-        'TARGET_CRS':QgsCoordinateReferenceSystem('EPSG:2949'),
-        'OPTIONS':'COMPRESS=DEFLATE|PREDICTOR=2|ZLEVEL=9',
-        'DATA_TYPE':1,
+        'TARGET_CRS': QgsCoordinateReferenceSystem('EPSG:2949'),
+        'OPTIONS': 'COMPRESS=DEFLATE|PREDICTOR=2|ZLEVEL=9',
+        'DATA_TYPE': 1,
         'OUTPUT': output
     }
     processing.run('gdal:translate', parameters)
 
     # Remove small puddles (less than 500m2) and small islands (less than 25m)
     input = output
-    output25 = outputDir + 'tmp_sieved25_'+ scenario + '.tif'
+    output25 = outputDir + 'tmp_sieved25_' + scenario + '.tif'
     output500 = outputDir + 'tmp_sieved500_' + scenario + '.tif'
     parameters = {
         'INPUT': input,
-        'THRESHOLD':25,
-        'EIGHT_CONNECTEDNESS':False,
-        'NO_MASK':True,
+        'THRESHOLD': 25,
+        'EIGHT_CONNECTEDNESS': False,
+        'NO_MASK': True,
         'OUTPUT': output25
     }
     processing.run('gdal:sieve', parameters)
     parameters = {
         'INPUT': input,
-        'THRESHOLD':500,
-        'EIGHT_CONNECTEDNESS':False,
-        'NO_MASK':True,
+        'THRESHOLD': 500,
+        'EIGHT_CONNECTEDNESS': False,
+        'NO_MASK': True,
         'OUTPUT': output500
     }
     processing.run('gdal:sieve', parameters)
     outputSum = outputDir + 'tmp_summed_' + scenario + '.tif'
     parameters = {
-        'INPUT': [ output25, output500 ],
+        'INPUT': [output25, output500],
         'REF_LAYER': input,
-        'NODATA_AS_FALSE':False,
-        'NO_DATA':0,
-        'DATA_TYPE':0,
+        'NODATA_AS_FALSE': False,
+        'NO_DATA': 0,
+        'DATA_TYPE': 0,
         'OUTPUT': outputSum
     }
     processing.run("native:rasterbooleanand", parameters)
@@ -106,9 +107,9 @@ def coverage(inputFile, outputDir):
     output = outputDir + 'B_SIEVED_' + scenario + '.tif'
     parameters = {
         'INPUT': input,
-        'TARGET_CRS':QgsCoordinateReferenceSystem('EPSG:2949'),
-        'OPTIONS':'COMPRESS=DEFLATE|PREDICTOR=2|ZLEVEL=9',
-        'DATA_TYPE':1,
+        'TARGET_CRS': QgsCoordinateReferenceSystem('EPSG:2949'),
+        'OPTIONS': 'COMPRESS=DEFLATE|PREDICTOR=2|ZLEVEL=9',
+        'DATA_TYPE': 1,
         'OUTPUT': output
     }
     processing.run('gdal:translate', parameters)
@@ -123,11 +124,11 @@ def coverage(inputFile, outputDir):
     input = output
     output = outputDir + 'tmp_polygonize_' + scenario + '.shp'
     parameters = {
-        'INPUT': input, 
-        'BAND':1,
-        'FIELD':'DN',
-        'EIGHT_CONNECTEDNESS':False,
-        'OUTPUT':output
+        'INPUT': input,
+        'BAND': 1,
+        'FIELD': 'DN',
+        'EIGHT_CONNECTEDNESS': False,
+        'OUTPUT': output
     }
     processing.run('gdal:polygonize', parameters)
 
@@ -141,7 +142,7 @@ def coverage(inputFile, outputDir):
     layer.dataProvider().deleteFeatures(toDelete)
     del toDelete, feats, layer
 
-    # Fix geometries, since polygonize can create 'ring self-intersections' 
+    # Fix geometries, since polygonize can create 'ring self-intersections'
     input = output
     output = outputDir + 'tmp_fixGeometry_' + scenario + '.shp'
     parameters = {
@@ -155,7 +156,7 @@ def coverage(inputFile, outputDir):
     output = outputDir + "C_poly_" + scenario + '.shp'
     parameters = {
         'INPUT': input,
-        'FIELD':['DN'],
+        'FIELD': ['DN'],
         'OUTPUT': output
     }
     processing.run('native:collect', parameters)
@@ -163,18 +164,19 @@ def coverage(inputFile, outputDir):
     # Add attribute for scenario number
     layer = QgsVectorLayer(output, '', 'ogr')
     layer.setCrs(QgsCoordinateReferenceSystem("EPSG:2949"))
-    layer.dataProvider().addAttributes( [QgsField('scIdx', QVariant.Int)])
+    layer.dataProvider().addAttributes([QgsField('scIdx', QVariant.Int)])
     layer.updateFields()
     attributeIndex = layer.fields().indexFromName("scIdx")
     feats = layer.dataProvider().getFeatures()
     for feat in feats:
-        layer.dataProvider().changeAttributeValues({ feat.id() : {1: int(scenario)} })
+        layer.dataProvider().changeAttributeValues(
+            {feat.id(): {1: int(scenario)}})
     del attributeIndex, feats, layer
 
 
 def finalMerge(fileTemplate, outputFile):
-    ## Given a template to get all the multipolygon shapefile created by
-    ## 'coverage', this function will merge them all in outputFile.
+    # Given a template to get all the multipolygon shapefile created by
+    # 'coverage', this function will merge them all in outputFile.
 
     QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
     qgs = QgsApplication([], False)
@@ -192,10 +194,11 @@ def finalMerge(fileTemplate, outputFile):
     }
     processing.run("native:mergevectorlayers", parameters)
 
+
 def finalSimplification(inputFile, outputFile):
-    ## This function takes the inputFile (expected to be
-    ## the lossless multipolygon file produced by finalMerge) and 
-    ## apply geometry simplification to produce outputFile.
+    # This function takes the inputFile (expected to be
+    # the lossless multipolygon file produced by finalMerge) and
+    # apply geometry simplification to produce outputFile.
 
     QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
     qgs = QgsApplication([], False)
@@ -207,8 +210,37 @@ def finalSimplification(inputFile, outputFile):
     QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
     parameters = {
         'INPUT': inputFile,
-        'METHOD':0,
-        'TOLERANCE':5,
+        'METHOD': 0,
+        'TOLERANCE': 5,
         'OUTPUT': outputFile
     }
     processing.run("native:simplifygeometries", parameters)
+
+
+def transform(file, source_crs, target_crs, outputDir):
+    # This function reprojects the source raster from the source_crs
+    # into the target_crs and write the transformed raster in
+    # the output target.
+    basename = os.path.basename(file)
+    name, extension = os.path.splitext(basename)
+    target_crs_number = target_crs.replace('EPSG:', '')
+    outname = f'{outputDir}/{name}.{target_crs_number}{extension}'
+
+    QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
+    qgs = QgsApplication([], False)
+    QgsApplication.initQgis()
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        import processing
+        from processing.core.Processing import Processing
+    Processing.initialize()
+    QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
+
+    parameters = {
+        'INPUT': file,
+        'SOURCE_CRS': source_crs,
+        'TARGET_CRS': target_crs,
+        'OPTIONS': "COMPRESS=DEFLATE|PREDICTOR=2",
+        'OUTPUT': outname
+    }
+    processing.run("gdal:warpreproject", parameters)
