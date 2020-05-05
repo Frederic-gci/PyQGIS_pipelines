@@ -1,7 +1,9 @@
-# QGIS pipelines 
+# PyQGIS pipelines 
 
-Python + QGIS based pipeline for the transformation of geospatial data for the AURIGE and ORACLE-2 projects.
+Python + QGIS based scripts for the transformation of geospatial data for the AURIGE and ORACLE-1 projects.
 
 ## Prerequisites
 
-The pipelines use the QGIS environment and libraries. They are meant to be launched from the Python executable of a working QGIS installation (on Windows, launch from python-qgis.bat). To install QGIS, refer to [QGIS download](https://qgis.org/en/site/forusers/download.html).
+The scripts based on QGIS depends on a full QGIS environment. They are meant to be launched from the python-qgis.bat script of a working QGIS installation. To install QGIS, refer to [QGIS download](https://qgis.org/en/site/forusers/download.html).
+
+The compute canada scripts are meant to be ran on compute canada. They are kept for documentation purposes.
