@@ -12,7 +12,7 @@ I want a table with these information in each row:
   * Z-water (the max value of the extended WSE under the building footprint)
 
 To do : 
-loop over scenario
+loop over scenario index
   load the proper extendedWSE
   calculate zonal statistics
   generate the ids of building that intersect with the coverage for the scenario
@@ -39,6 +39,8 @@ from qgis.analysis import *
 sys.path.append('C:\\OSGeo4W64\\apps\\qgis\\python\\plugins')
 
 fh = open("output.txt", "w+")
+header=f'building_id,sc_idx, z_water,e_surf,e_iso,h_sub\n'
+fh.write(header)
 
 QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
 qgs = QgsApplication([], False)
@@ -59,7 +61,7 @@ buildings = QgsVectorLayer(
 filled_coverages = QgsVectorLayer(
   "D:/Results/INFO-Crue/0508_JacquesCartier/Couverture/JC_raw_coverage_filled_32198.shp",'', 'ogr')
 
-for scenario_num in range(1,152):
+for scenario_num in range(1,158):
   extended_WSE_path=(
     f'D:/Results/INFO-Crue/0508_JacquesCartier/ExtendedWSE/32198/PF{scenario_num}.32198.tif')
   extended_WSE = QgsRasterLayer(extended_WSE_path)
