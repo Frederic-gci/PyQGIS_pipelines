@@ -189,7 +189,7 @@ def finalMerge(fileTemplate, outputFile):
     fileList = glob.glob(fileTemplate)
     parameters = {
         'LAYERS': fileList,
-        'CRS': 'EPSG:2949',
+        'CRS': 'EPSG:32198',
         'OUTPUT': outputFile
     }
     processing.run("native:mergevectorlayers", parameters)

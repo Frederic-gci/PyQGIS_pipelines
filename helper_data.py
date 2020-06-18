@@ -1,6 +1,6 @@
 """
 From : 
-  * A vector of building from the scenario
+  * A file of buildings (polygons)
   * A folder with the extended WSE
   * A file with the raw coverage for each scenario
   * A file with the 'filled' coverage for each scenario
