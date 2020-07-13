@@ -11,7 +11,10 @@ from qgis.core import *
 import qgis.utils
 from qgis.analysis import *
 from qgis.PyQt.QtCore import QVariant
-sys.path.append('C:\\OSGeo4W64\\apps\\qgis\\python\\plugins')
+# sys.path.append('C:\\OSGeo4W64\\apps\\qgis\\python\\plugins')
+sys.path.append('/usr/share/qgis/python/plugins')
+
+os.environ['QT_QPA_PLATFORM']='offscreen'
 
 # local imports
 
@@ -31,8 +34,9 @@ def coverage(inputFile, outputDir):
     print(utils.now() + "Initializing coverage pipeline for scenario " + scenario + ".")
 
     # Initialise QgsApplication and processing modules
-    QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
-    qgs = QgsApplication([], False)
+    # QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
+    QgsApplication.setPrefixPath("/usr/share/qgis/", True)
+    qgs = QgsApplication([], False, None)
     QgsApplication.initQgis()
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -221,13 +225,15 @@ def transform(file, source_crs, target_crs, outputDir):
     # This function reprojects the source raster from the source_crs
     # into the target_crs and write the transformed raster in
     # the output target.
+    warnings.filterwarnings("ignore")
     basename = os.path.basename(file)
     name, extension = os.path.splitext(basename)
     target_crs_number = target_crs.replace('EPSG:', '')
     outname = f'{outputDir}/{name}.{target_crs_number}{extension}'
-
-    QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
-    qgs = QgsApplication([], False)
+    print(basename,outname)
+    # QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
+    QgsApplication.setPrefixPath("/usr/share/qgis/", True)
+    qgs = QgsApplication([], False, None)
     QgsApplication.initQgis()
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
