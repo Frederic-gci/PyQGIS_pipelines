@@ -2,12 +2,13 @@ import rasterio
 import numpy as np
 
 ## Parameters: 
+scenario_name = "0508_JacquesCartier_HECRAS"
 file_mask = '/processing/tmp/32198/*.tif'
-mnt_path = '/processing/mnt/mnt_jc_oct19_32198_1x1_clipped.tif'
-max_idx_scenario = 157
+mnt_path = '/processing/mnt/mnt_jc_oct19.32198_2020-07-13.tif'
+max_idx_scenario = 5
 
-thresholds = [0,0.3,0.6,0.9,1.2,1.5]
-suffixes = ["0to30cm.tif", "30to60cm.tif","60to90cm.tif", "90to120cm.tif", "over120cm.tif"]
+classes = [0,0.3,0.6,0.9,1.2,1.5]
+suffixes = ["0to30cm", "30to60cm","60to90cm", "90to120cm", "120to150cm", "over150cm"]
 
 ### Load the MNT
 mnt = rasterio.open(mnt_path)
@@ -17,40 +18,40 @@ mnt_dat = mnt.read(1)
 wse = rasterio.open('/processing/tmp/32198/SC1.32198.tif')
 shape = wse.shape
 
-### 
-band1 = np.full(shape=shape, fill_value=255, dtype=np.uint8)
-band2, band3, band4 = map(np.copy, [band1] * 3)
+## TODO. Verify that the cell sizes match. If not, then resample MNT to get the match
+## TODO. Verify that the WSE is totally contained in the MNT or raise error.
 
-for i in range (1, 156):
-  print(f'Processing wse number {i}')
-  data_path = f'/processing/tmp/32198/SC{i}.32198.tif'
+## Extract the MNT data corresponding to the WSE rectangle.
+wse_rect_window = rasterio.windows.from_bounds(*wse.bounds, transform=mnt.transform)
+mnt_rect = mnt.read(1, window=wse_rect_window)
+
+### 
+bands = [ np.full(shape=shape, fill_value=255, dtype=np.uint8) for i in range(len(classes))]
+
+for sc_idx in range (1, 6):
+  print(f'Processing wse number {sc_idx}')
+  data_path = f'/processing/tmp/32198/SC{sc_idx}.32198.tif'
   data_file = rasterio.open(data_path)
   data = data_file.read(1)
-  band1 = np.where( np.greater(data, mnt_dat + threshold[0]) , np.minimum(band1, i), band1 )
-  band2 = np.where( np.greater(data, mnt_dat + threshold[1]) , np.minimum(band2, i), band2 )
-  band3 = np.where( np.greater(data, mnt_dat + threshold[2]) , np.minimum(band3, i), band3 )
-  band4 = np.where( np.greater(data, mnt_dat + threshold[3]) , np.minimum(band4, i), band4 )
+  for class_idx in range(len(classes)):
+    bands[class_idx] = np.where(
+      np.greater(data, mnt_rect + classes[class_idx]),
+      np.minimum(bands[class_idx], sc_idx),
+      bands[class_idx])
 
-
-output_file = rasterio.open(
-  '/processing/output/test.tif',
-  'w', 
-  driver='GTiff',
-  width=wse.width,
-  height=wse.height,
-  count=4,
-  dtype=np.uint8,
-  crs=wse.crs,
-  transform=wse.transform,
-  nodata=int(255),
-  compress='deflate'
-)
-output_file.write(band1, 1)
-output_file.write(band2, 2)
-output_file.write(band3, 3)
-output_file.write(band4, 4)
-
-
-## Notes: 
-## First, in QGIS, set the raster to the resolution of the scenario.
-## Second, in QGIS, clip the raster according to the extent of the scenario.
+for class_idx in range(len(classes)):
+  output_file = rasterio.open(
+    f'/processing/output/{scenario_name}_{suffixes[class_idx]}.tif',
+    'w',
+    driver='GTiff',
+    width=wse.width,
+    height=wse.height,
+    count=1,
+    dtype=np.uint8,
+    crs=wse.crs,
+    transform=wse.transform,
+    nodata=int(255),
+    compress='deflate'
+  )
+  output_file.write(bands[class_idx],1)
+  output_file.close
