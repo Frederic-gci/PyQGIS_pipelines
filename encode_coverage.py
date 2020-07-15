@@ -4,6 +4,13 @@ import rasterio
 import numpy as np
 import argparse
 
+from rasterio import Affine, MemoryFile
+from rasterio.enums import Resampling
+from contextlib import contextmanager
+
+# from https://gist.github.com/lpinner/13244b5c589cda4fbdfa89b30a44005b#file-resample_raster-py
+from resample_raster import resample_raster_xy as resample
+
 # Parameter definitions
 parser = argparse.ArgumentParser()
 parser.add_argument("--mnt",
@@ -35,33 +42,50 @@ classes = [0, 0.3, 0.6, 0.9, 1.2, 1.5]
 suffixes = ["0to30cm", "30to60cm", "60to90cm",
             "90to120cm", "120to150cm", "over150cm"]
 
-mnt = rasterio.open(args.mnt)
-wse = rasterio.open(args.wse.format(sc_idx=1))
+# Get some mnt and wse metadata
+with rasterio.open(args.mnt) as mnt:
+    mnt_profile = mnt.profile
+    mnt_bounds = mnt.bounds
+    mnt_res = mnt.res
+
+with rasterio.open(args.wse.format(sc_idx=1)) as wse:
+    wse_profile = wse.profile
+    wse_bounds = wse.bounds
+    wse_res = wse.res
+    wse_shape = wse.shape
 
 # Validate MNT and WSE files
-if (wse.crs != 32198 or mnt.crs != 32198):
+if (wse_profile['crs'] != 32198 or mnt_profile['crs'] != 32198):
     exit("MNT and WSE files must in EPSG:32198 projection (NAD83 Quebec Lambert).")
-if (mnt.bounds.left > wse.bounds.left or
-    mnt.bounds.right < wse.bounds.left or
-    mnt.bounds.bottom > wse.bounds.bottom or
-        mnt.bounds.top < mnt.bounds.top):
+if (mnt_bounds.left > wse_bounds.left or
+    mnt_bounds.right < wse_bounds.left or
+    mnt_bounds.bottom > wse_bounds.bottom or
+        mnt_bounds.top < wse_bounds.top):
     exit("MNT extent should encompass WSE extent")
-if (wse.res[0] != 1 or wse.res[1] != -1):
+if (wse_res[0] != 1 or wse_res[1] != 1):
     print("Encode_coverage: WSE file cells are not 1m x 1m.")
-if (mnt.res[0] != 1 or mnt.res[1] != -1):
+if (mnt_res[0] != 1 or mnt_res[1] != 1):
     print("Encode_coverage: Original MNT file cells are not 1m x 1m.")
 
-# If MNT cell sizes do not match WSE cell sizes, then resample MNT
-if (mnt.res[0] != wse.res[0] or mnt.res[1] != wse.res[1]):
-    print(
-        "encode_coverage: MNT cell sizes differ from WSE cell sizes, " +
-        "the MNT will be resampled to match WSE.")
 # TODO. When MNT cell size does not match WSE cell sizes, resample MNT.
 
 # Extract the MNT data corresponding to the WSE rectangle.
-wse_rect_window = rasterio.windows.from_bounds(
-    *wse.bounds, transform=mnt.transform)
-mnt_rect = mnt.read(1, window=wse_rect_window)
+with rasterio.open(args.mnt) as mnt:
+    if (mnt_res[0] != wse_res[0] or mnt_res[1] != wse_res[1]):
+        print(
+            "encode_coverage: MNT cell sizes differ from WSE cell sizes, " +
+            "the MNT will be resampled to match WSE.")
+        x_scale = wse_res[0] / mnt_res[0]
+        y_scale = wse_res[1] / mnt_res[1]
+        with resample(mnt, x_scale=x_scale, y_scale=y_scale) as scaled_mnt:
+            wse_rect_window = rasterio.windows.from_bounds(
+                *wse_bounds, transform=scaled_mnt.profile['transform']
+            )
+            mnt_rect= scaled_mnt.read(1, window=wse_rect_window)
+    else:
+        wse_rect_window = rasterio.windows.from_bounds(
+            *wse_bounds, transform=mnt.profile['transform'])
+        mnt_rect = mnt.read(1, window=wse_rect_window)
 
 bands = [np.full(shape=wse.shape, fill_value=255, dtype=np.uint8)
          for i in range(len(classes))]
@@ -82,12 +106,12 @@ for class_idx in range(len(classes)):
         f'/processing/output/{args.model}_{suffixes[class_idx]}.tif',
         'w',
         driver='GTiff',
-        width=wse.width,
-        height=wse.height,
+        width=wse_profile['width'],
+        height=wse_profile['height'],
         count=1,
         dtype=np.uint8,
-        crs=wse.crs,
-        transform=wse.transform,
+        crs=wse_profile['crs'],
+        transform=wse_profile['transform'],
         nodata=int(255),
         compress='deflate'
     )
