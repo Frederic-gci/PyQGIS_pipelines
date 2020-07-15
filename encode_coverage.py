@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import sys
 import rasterio
 import numpy as np
 import argparse
@@ -24,22 +24,39 @@ parser.add_argument("--model",
 args = parser.parse_args()
 
 # Parameter validation
-# TODO. Validate that wse contains "{sc_idx}"
+pattern = '{sc_idx}'
+if(pattern not in args.wse):
+    exit(
+        "The WSE argument must be a pattern that contains '{sc_idx}', " +
+        "which will be replaced by the scenario index.")
 
 # Hardcoded depth classes
 classes = [0, 0.3, 0.6, 0.9, 1.2, 1.5]
 suffixes = ["0to30cm", "30to60cm", "60to90cm",
             "90to120cm", "120to150cm", "over150cm"]
 
-# Load the MNT
 mnt = rasterio.open(args.mnt)
-mnt_dat = mnt.read(1)
-
-# The first data file profile will be used for shape, bounds, etc.
 wse = rasterio.open(args.wse.format(sc_idx=1))
 
-# TODO. Verify that the cell sizes match. If not, then resample MNT to get the match
-# TODO. Verify that the WSE is totally contained in the MNT or raise error.
+# Validate MNT and WSE files
+if (wse.crs != 32198 or mnt.crs != 32198):
+    exit("MNT and WSE files must in EPSG:32198 projection (NAD83 Quebec Lambert).")
+if (mnt.bounds.left > wse.bounds.left or
+    mnt.bounds.right < wse.bounds.left or
+    mnt.bounds.bottom > wse.bounds.bottom or
+        mnt.bounds.top < mnt.bounds.top):
+    exit("MNT extent should encompass WSE extent")
+if (wse.res[0] != 1 or wse.res[1] != -1):
+    print("Encode_coverage: WSE file cells are not 1m x 1m.")
+if (mnt.res[0] != 1 or mnt.res[1] != -1):
+    print("Encode_coverage: Original MNT file cells are not 1m x 1m.")
+
+# If MNT cell sizes do not match WSE cell sizes, then resample MNT
+if (mnt.res[0] != wse.res[0] or mnt.res[1] != wse.res[1]):
+    print(
+        "encode_coverage: MNT cell sizes differ from WSE cell sizes, " +
+        "the MNT will be resampled to match WSE.")
+# TODO. When MNT cell size does not match WSE cell sizes, resample MNT.
 
 # Extract the MNT data corresponding to the WSE rectangle.
 wse_rect_window = rasterio.windows.from_bounds(
