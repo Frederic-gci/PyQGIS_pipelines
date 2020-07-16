@@ -67,8 +67,6 @@ if (wse_res[0] != 1 or wse_res[1] != 1):
 if (mnt_res[0] != 1 or mnt_res[1] != 1):
     print("Encode_coverage: Original MNT file cells are not 1m x 1m.")
 
-# TODO. When MNT cell size does not match WSE cell sizes, resample MNT.
-
 # Extract the MNT data corresponding to the WSE rectangle.
 with rasterio.open(args.mnt) as mnt:
     if (mnt_res[0] != wse_res[0] or mnt_res[1] != wse_res[1]):
