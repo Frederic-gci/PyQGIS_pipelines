@@ -4,10 +4,6 @@ import rasterio
 import numpy as np
 import argparse
 
-from rasterio import Affine, MemoryFile
-from rasterio.enums import Resampling
-from contextlib import contextmanager
-
 # from https://gist.github.com/lpinner/13244b5c589cda4fbdfa89b30a44005b#file-resample_raster-py
 from resample_raster import resample_raster_xy as resample
 
@@ -28,6 +24,10 @@ parser.add_argument("--scenarios",
 parser.add_argument("--model",
                     help="Model name (will be used for output file names)",
                     required=True)
+parser.add_argument("--output_dir",
+                     help="Output directory",
+                     required=False,
+                     default="/processing/output/")
 args = parser.parse_args()
 
 # Parameter validation
@@ -79,7 +79,7 @@ with rasterio.open(args.mnt) as mnt:
             wse_rect_window = rasterio.windows.from_bounds(
                 *wse_bounds, transform=scaled_mnt.profile['transform']
             )
-            mnt_rect= scaled_mnt.read(1, window=wse_rect_window)
+            mnt_rect = scaled_mnt.read(1, window=wse_rect_window)
     else:
         wse_rect_window = rasterio.windows.from_bounds(
             *wse_bounds, transform=mnt.profile['transform'])
@@ -101,7 +101,7 @@ for sc_idx in range(1, args.scenarios + 1):
 
 for class_idx in range(len(classes)):
     output_file = rasterio.open(
-        f'/processing/output/{args.model}_{suffixes[class_idx]}.tif',
+        f'{args.output_dir}/{args.model}_{suffixes[class_idx]}.tif',
         'w',
         driver='GTiff',
         width=wse_profile['width'],
