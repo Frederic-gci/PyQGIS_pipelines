@@ -3,4 +3,4 @@
 ## Python
 __pycache__
 .vscode
-
+*.env
