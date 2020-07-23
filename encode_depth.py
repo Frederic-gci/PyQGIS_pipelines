@@ -3,6 +3,7 @@ import sys
 import rasterio
 import numpy as np
 import argparse
+import utilities as utils
 
 # from https://gist.github.com/lpinner/13244b5c589cda4fbdfa89b30a44005b#file-resample_raster-py
 from resample_raster import resample_raster_xy as resample
@@ -71,7 +72,7 @@ if (mnt_res[0] != 1 or mnt_res[1] != 1):
 with rasterio.open(args.mnt) as mnt:
     if (mnt_res[0] != wse_res[0] or mnt_res[1] != wse_res[1]):
         print(
-            "encode_coverage: MNT cell sizes differ from WSE cell sizes, " +
+            "Encode_coverage: MNT cell sizes differ from WSE cell sizes, " +
             "the MNT will be resampled to match WSE.")
         x_scale = wse_res[0] / mnt_res[0]
         y_scale = wse_res[1] / mnt_res[1]
@@ -90,7 +91,7 @@ bands = [np.full(shape=wse.shape, fill_value=255, dtype=np.uint8)
 
 for sc_idx in range(1, args.scenarios + 1):
     data_path = args.wse.format(sc_idx=sc_idx)
-    print(f'Processing {data_path}')
+    print(f'Encode_coverage: {utils.now()} Processing {data_path}')
     data_file = rasterio.open(data_path)
     data = data_file.read(1)
     for class_idx in range(len(classes)):

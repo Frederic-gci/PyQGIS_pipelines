@@ -1,6 +1,6 @@
 #!/usr/bin bash
 
-water_data_script="/processing/PyQGIS_pipelines/water_data.py"
+get_hsub="/processing/PyQGIS_pipelines/get_hsub.py"
 wse="/processing/tmp/32198/SC{sc_idx}.32198.tif"
 buildings="/processing/tmp/test/0508_JacquesCartier_HECRAS_buildings.shp"
 # To use QT without GUI, set the platform to offscreen
@@ -11,7 +11,7 @@ export QT_QPA_PLATFORM=offscreen
 # echo ""
 
 echo "Run 'water_data' on all scenario for 0508_JacquesCartier"
-python3 ${water_data_script} \
+python3 ${get_hsub} \
   --wse ${wse} \
   --buildings ${buildings} \
   --scenarios 157 \
