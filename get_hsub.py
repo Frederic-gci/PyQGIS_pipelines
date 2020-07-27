@@ -34,11 +34,11 @@ import warnings
 
 import utilities as utils
 
-# from qgis.core import *
-# import qgis.utils
-# from qgis.analysis import *
-# from qgis.PyQt.QtCore import QVariant
-# sys.path.append('/usr/share/qgis/python/plugins')  # system specific
+from qgis.core import *
+import qgis.utils
+from qgis.analysis import *
+from qgis.PyQt.QtCore import QVariant
+sys.path.append('/usr/share/qgis/python/plugins')  # system specific
 
 parser = argparse.ArgumentParser()
 
@@ -84,156 +84,112 @@ building_elev_attr = 'alt_premie'
 building_id_attr = 'batiment_i'
 
 # Prepare output file:
-# if not os.path.exists(args.output_dir):
-#     os.makedirs(args.output_dir)
-# fh = open(f'{args.output_dir}/{args.model}_water_data.txt', "w+")
-# header = f'building_id,sc_idx,z_water,e_surf,e_iso,h_sub,model\n'
-# fh.write(header)
-
+if not os.path.exists(args.output_dir):
+    os.makedirs(args.output_dir)
 if not os.path.exists(args.tmp_dir):
     os.makedirs(args.tmp_dir)
 
-print(f'get_esurf_eiso_hsub: {utils.now()} Getting filled coverage from WSE files.')
+fh = open(f'{args.output_dir}/{args.model}_water_data.txt', "w+")
+header = f'building_id,sc_idx,z_water,e_surf,e_iso,h_sub,model\n'
+fh.write(header)
+
 file_glob = args.wse.replace("{sc_idx}", "\*")
+
+print(f'get_hsub: {utils.now()} Creating filled coverage from WSE files.')
 get_filled_coverage_command = (
-    f'runner.py --function get_filled_coverage '
-    f'--arguments "{{output_dir: {args.tmp_dir} }}" --files {file_glob}'
+    f'python3 runner.py '
+    f'--function get_filled_coverage '
+    f'--arguments \'{{"output_dir": "{args.tmp_dir}" }}\' '
+    f'--files {file_glob} '
+    f'--threads 14'
 )
-print(get_filled_coverage_command)
-# os.system(get_filled_coverage_command)
+os.system(get_filled_coverage_command)
+print(f'get_hsub: {utils.now()} Finished the creation of filled_coverage files.')
 
-
-print(f'get_esurf_eiso_hsub: {utils.now()} Getting wse points from WSE files.')
+print(f'get_hsub: {utils.now()} Creating wse points from WSE files.')
 get_wse_points_command = (
-    f'runner.py --function get_filled_coverage '
-    f'--arguments "{{output_dir: {args.tmp_dir} }}" --files {file_glob}'
+    f'python3 runner.py --function get_wse_points '
+    f'--arguments \'{{"output_dir": "{args.tmp_dir}" }}\' '
+    f'--files {file_glob} '
+    f'--threads 16'
 )
-print(get_wse_points_command)
-# os.system(get_wse_points_command)
+os.system(get_wse_points_command)
+print(f'get_hsub: {utils.now()} Finished the creation of  wse points files.')
 
-# QgsApplication.setPrefixPath("/usr/share/qgis/", True)
-# qgs = QgsApplication([], False)
-# QgsApplication.initQgis()
-# with warnings.catch_warnings():
-#     warnings.filterwarnings("ignore", category=DeprecationWarning)
-#     import processing
-#     from processing.core.Processing import Processing
-# Processing.initialize()
-# QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
+QgsApplication.setPrefixPath("/usr/share/qgis/", True)
+qgs = QgsApplication([], False)
+QgsApplication.initQgis()
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    import processing
+    from processing.core.Processing import Processing
+Processing.initialize()
+QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
 
-# buildings = QgsVectorLayer(args.buildings, '', 'ogr')
+buildings = QgsVectorLayer(args.buildings, '', 'ogr')
 for sc_idx in range(1, args.scenarios + 1):
     wse_file = args.wse.format(sc_idx=sc_idx)
-    path, basename = os.path.split(wse_file)
-    name, ext = os.path.splitext(basename)
 
+    path, basename = os.path.split(wse_file)
+    print(f'get_hsub: {utils.now()} Getting hsub data for scenario {sc_idx}.')
+    name, ext = os.path.splitext(basename)
     filled_coverage =f'{args.tmp_dir}filled_coverage_{name}.shp' 
     wse_points = f'{args.tmp_dir}points_{name}.shp'
-    print(wse_file)
-    print(filled_coverage)
-    print(wse_points)
-    print(f'{utils.now()} working on {wse_file}')
 
-#     wse = QgsRasterLayer(wse_file)
+    wse = QgsRasterLayer(wse_file)
 
-#     # Get filled_coverage:
-#     filled_coverage = f'{args.tmp_dir}/filled_coverage_{sc_idx}.shp'
-#     tmp_bin_wse = f'{args.tmp_dir}/bin_{sc_idx}.tif'
-#     tmp_cov = f'{args.tmp_dir}/tmp_cov_{sc_idx}.shp'
-#     tmp_filled = f'{args.tmp_dir}/tmp_filled_{sc_idx}.shp'
+    # Get ids of buildings intersecting with filled coverage
+    processing.run('native:selectbylocation', {
+        'INPUT': buildings,
+        'PREDICATE': [0],
+        'INTERSECT': filled_coverage,
+        'METHOD': 0, }
+    )
+    filled_ids = buildings.selectedFeatureIds()
 
-#     processing.run('native:reclassifybytable', {
-#         'INPUT_RASTER': wse,
-#         'RASTER_BAND': 1,
-#         'TABLE': [0, 6000, 1],
-#         'NO_DATA': 0,
-#         'RANGE_BOUNDARIES': 0,  # 0: min < value <= max
-#         'DATA_TYPE': 0,  # 0: Byte
-#         'OUTPUT': tmp_bin_wse
-#     })
-#     processing.run('gdal:polygonize', {
-#         'INPUT': tmp_bin_wse,
-#         'BAND': 1,
-#         'FIELD': 'DN',
-#         'EIGHT_CONNECTEDNESS': False,
-#         'OUTPUT': tmp_cov
-#     })
-#     processing.run('native:deleteholes', {
-#         'INPUT': tmp_cov,
-#         'OUTPUT': tmp_filled,
-#         'MIN_AREA': 0,
-#     })
-#     processing.run('native:fixgeometries', {
-#         'INPUT': tmp_filled,
-#         'OUTPUT': filled_coverage
-#     })
+    # Join attribute by nearest point
+    buildings_with_nearest = f'{args.tmp_dir}/buildings_with_nearest_{sc_idx}.shp'
+    parameters = {
+        'INPUT': buildings,
+        'INPUT_2': wse_points,
+        'FIELDS_TO_COPY': ['Z'],
+        'DISCARD_NONMATCHING': False,
+        'PREFIX': f'{sc_idx}_',
+        'NEIGHBORS': 1,
+        'MAX_DISTANCE': None,
+        'OUTPUT': buildings_with_nearest
+    }
+    processing.run("native:joinbynearest", parameters)
 
-#     os.remove(tmp_bin_wse)
-#     QgsVectorFileWriter.deleteShapeFile(tmp_filled)
-#     QgsVectorFileWriter.deleteShapeFile(tmp_cov)
+    buildings_with_nearest = QgsVectorLayer(buildings_with_nearest, '', 'ogr')
 
-#     # Get WSE points
-#     wse_points = f'{args.output_dir}/points_{sc_idx}.shp'
-#     parameters = {
-#         'INPUT_RASTER': wse,
-#         'RASTER_BAND': 1,
-#         'FIELD_NAME': "Z",
-#         'OUTPUT': wse_points
-#     }
-#     processing.run('native:pixelstopoints', parameters)
+    # Add zonal stats to building
+    zonalstats = QgsZonalStatistics(
+        polygonLayer=buildings_with_nearest,
+        rasterLayer=wse,
+        rasterBand=1,
+        attributePrefix=f'{sc_idx}_',
+        stats=QgsZonalStatistics.Max
+    )
+    zonalstats.calculateStatistics(None)
 
-#     # Get ids of buildings intersecting with filled coverage
-#     processing.run('native:selectbylocation', {
-#         'INPUT': buildings,
-#         'PREDICATE': [0],
-#         'INTERSECT': filled_coverage,
-#         'METHOD': 0, }
-#     )
-#     filled_ids = buildings.selectedFeatureIds()
+    for building in buildings_with_nearest.getFeatures():
+        feature_id = building.id()
+        building_id = int(building[building_id_attr])
+        scenario_id = sc_idx
+        max = building[f'{sc_idx}_Max']
+        Esurf = max != qgis.core.NULL
+        Eisol = feature_id in filled_ids and not Esurf
+        if(Esurf):
+            zWater = building[f'{sc_idx}_Max']  # max from WSE file
+        else:
+            zWater = building[f'{sc_idx}_Z']  # value from nearest point
+        Hsub = zWater - building[building_elev_attr]
+        to_write = (
+            f'{str(building_id)},{str(scenario_id)},'
+            f'{str(zWater)},{str(Esurf)},{str(Eisol)},{str(Hsub)},'
+            f'{str(args.model)}\n'
+        )
+        fh.write(to_write)
 
-#     # Join attribute by nearest point
-#     buildings_with_nearest = f'{args.tmp_dir}/buildings_with_nearest_{sc_idx}.shp'
-#     parameters = {
-#         'INPUT': buildings,
-#         'INPUT_2': wse_points,
-#         'FIELDS_TO_COPY': ['Z'],
-#         'DISCARD_NONMATCHING': False,
-#         'PREFIX': f'{sc_idx}_',
-#         'NEIGHBORS': 1,
-#         'MAX_DISTANCE': None,
-#         'OUTPUT': buildings_with_nearest
-#     }
-#     processing.run("native:joinbynearest", parameters)
-
-#     buildings_with_nearest = QgsVectorLayer(buildings_with_nearest, '', 'ogr')
-
-#     # Add zonal stats to building
-#     zonalstats = QgsZonalStatistics(
-#         polygonLayer=buildings_with_nearest,
-#         rasterLayer=wse,
-#         rasterBand=1,
-#         attributePrefix=f'{sc_idx}_',
-#         stats=QgsZonalStatistics.Max
-#     )
-#     zonalstats.calculateStatistics(None)
-
-#     for building in buildings_with_nearest.getFeatures():
-#         feature_id = building.id()
-#         building_id = int(building[building_id_attr])
-#         scenario_id = sc_idx
-#         max = building[f'{sc_idx}_Max']
-#         Esurf = max != qgis.core.NULL
-#         Eisol = feature_id in filled_ids and not Esurf
-#         if(Esurf):
-#             zWater = building[f'{sc_idx}_Max']  # max from WSE file
-#         else:
-#             zWater = building[f'{sc_idx}_Z']  # value from nearest point
-#         Hsub = zWater - building[building_elev_attr]
-#         to_write = (
-#             f'{str(building_id)},{str(scenario_id)},'
-#             f'{str(zWater)},{str(Esurf)},{str(Eisol)},{str(Hsub)},'
-#             f'{str(args.model)}\n'
-#         )
-#         fh.write(to_write)
-
-# fh.close()
+fh.close()

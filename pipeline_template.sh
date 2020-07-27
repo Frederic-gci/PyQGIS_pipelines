@@ -26,7 +26,7 @@ wse_path="/processing/tmp/${model}/wse_32198/"
 tmp_path="/processing/tmp/${model}/tmp/"
 buildings="${tmp_path}${model}_buildings.shp"
 depth_coverage_output="/processing/tmp/${model}/depth_coverage_output/"
-hsub_data_output="/processing/tmp/${model}/hsub_data_output/"
+hsub_output="/processing/tmp/${model}/hsub_output/"
 mkdir -p ${mnt_path} ${wse_path} ${tmp_path} ${depth_coverage_output} ${hsub_data_output}
 mnt=${mnt_path}`basename ${original_mnt}`
 
@@ -44,14 +44,14 @@ original_wse_res=`rasterio info --res ${one_wse_file}`
 echo "Original WSE file CRS is ${original_wse_crs}"
 echo "Original WSE resolution is ${original_wse_res} "
 
-if [ ${wse_crs} = "EPSG:32198" ]
+if [[ ${wse_crs} = "EPSG:32198" ]]
 then
   echo "WSE files are copied directly to ${wse_path}"
   cp ${original_wse_files} ${wse_path}
 else
-  echo "WSE files will be reprojected to EPSG:32198 into ${wse_path}"
+  echo -e "WSE files from ${original_wse_files}\n  will be reprojected to EPSG:32198\n  into ${wse_path}"
   rasterio_command="rasterio warp {} ${wse_path}{/} --dst-crs EPSG:32198 --resampling bilinear --overwrite"
-  parallel -j 16 "${rasterio_command}; printf \"Reprojected {}  \"; date +'%F %T'" ::: ${original_wse_files}
+  parallel -j 16 "${rasterio_command}; printf \"Reprojected {/} -- \"; date +'%F %T'" ::: ${original_wse_files}
 fi
 
 # Preparing MNT
@@ -66,7 +66,7 @@ echo "Original MNT CRS is ${mnt_crs}."
 echo "Original MNT resolution is ${mnt_res}."
 echo " "
 
-if [ "${mnt_crs}" = "EPSG:32198" ]
+if [[ ${mnt_crs} = "EPSG:32198" ]]
 then
   echo "MNT is copied directly to ${mnt_path}"
   cp ${original_mnt} ${mnt}
@@ -74,7 +74,7 @@ else
   echo "MNT will be reprojected 'like' a WSE data file."
   rasterio warp ${original_mnt} ${mnt} --like ${one_wse_32198_file} \
   --resampling bilinear --threads 6 --overwrite
-  printf "Reprojected ${mnt}"
+  printf "Reprojected $(basename ${mnt})"
   date +'%F %T'
 fi
 
@@ -94,8 +94,18 @@ echo " "
 
 # # TODO: Get building file from psql using SAPIENS, +infocrue_segmentation +s
 echo "$(date +'%F %T') -- Getting model building from sapiens"
-query="SELECT distinct sapiens.geom, sapiens.batiment_i, sapiens.alt_premie from sapiens, xref_sector_building, sectors where sapiens.batiment_i=xref_sector_building.building_id AND xref_sector_building.sector_id=sectors.sector_id AND sectors.model = '${model}';"
-pgsql2shp -h $PSQL_DB_HOST -u $PSQL_DB_USER -p $PSQL_DB_PORT -P $PSQL_DB_PW -f ${buildings} aurige "${query}"
+query << endOfQuery
+SELECT
+  distinct sapiens.geom, sapiens.batiment_i, sapiens.alt_premie
+FROM
+  sapiens, xref_sector_building, sectors
+WHERE
+  sapiens.batiment_i=xref_sector_building.building_id
+  AND xref_sector_building.sector_id=sectors.sector_id
+  AND sectors.model = '${model}';
+endOfQuery
+pgsql2shp -h $PSQL_DB_HOST -u $PSQL_DB_USER -p $PSQL_DB_PORT -P $PSQL_DB_PW \
+  -f ${buildings} aurige "${query}"
 echo " "
 
 echo "$(date +'%F %T') -- Launching hsub_data.py"
@@ -104,7 +114,7 @@ python3 -u ${pipeline_path}/get_hsub.py \
   --buildings ${buildings} \
   --scenarios ${num_scenarios} \
   --model ${model} \
-  --output_dir ${hsub_data_output} \
+  --output_dir ${hsub_output} \
   --tmp_dir ${tmp_path}/hsub_tmp/
 echo "$(date +'%F %T') -- Finished hsub_data.py"
 echo " "

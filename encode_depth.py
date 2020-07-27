@@ -66,13 +66,13 @@ if (mnt_bounds.left > wse_bounds.left or
 if (wse_res[0] != 1 or wse_res[1] != 1):
     print("Encode_coverage: WSE file cells are not 1m x 1m.")
 if (mnt_res[0] != 1 or mnt_res[1] != 1):
-    print("Encode_coverage: Original MNT file cells are not 1m x 1m.")
+    print("encode_depth: Original MNT file cells are not 1m x 1m.")
 
 # Extract the MNT data corresponding to the WSE rectangle.
 with rasterio.open(args.mnt) as mnt:
     if (mnt_res[0] != wse_res[0] or mnt_res[1] != wse_res[1]):
         print(
-            "Encode_coverage: MNT cell sizes differ from WSE cell sizes, " +
+            "encode_depth: MNT cell sizes differ from WSE cell sizes, " +
             "the MNT will be resampled to match WSE.")
         x_scale = wse_res[0] / mnt_res[0]
         y_scale = wse_res[1] / mnt_res[1]
@@ -91,7 +91,7 @@ bands = [np.full(shape=wse.shape, fill_value=255, dtype=np.uint8)
 
 for sc_idx in range(1, args.scenarios + 1):
     data_path = args.wse.format(sc_idx=sc_idx)
-    print(f'Encode_coverage: {utils.now()} Processing {data_path}')
+    print(f'encode_depth: {utils.now()} Processing {data_path}')
     data_file = rasterio.open(data_path)
     data = data_file.read(1)
     for class_idx in range(len(classes)):
