@@ -9,17 +9,12 @@
 # original_wse_files="/path_to_wse_files/*.tif"
 # original_mnt="/path_to_mnt/mnt"
 
-model="0508_JacquesCartier"
-file_mask="SC{sc_idx}.tif"
-original_wse_files="/data/aurige/infocrue/0508_JacquesCartier_HECRAS/wse_processed/*.tif"
-original_mnt="/data/aurige/raw_data/infocrue/Scenarios_Jacques_Cartier_ULAVAL/Modele_J_C_HD/mnt_jc_oct19.tif"
-
+log_file="/processing/PyQGIS_pipelines/executions/$(date +%F)_${model}.log"
 {
 ## Set up working environment
 export QT_QPA_PLATFORM=offscreen # (to use QT without GUI)
-DISPLAY='IP:0.0'
+# DISPLAY='IP:0.0'
 source psql.env
-# log_file="/processing/PyQGIS_pipelines/executions/$(date +%F)_${model}.log"
 pipeline_path="/processing/PyQGIS_pipelines/"
 mnt_path="/processing/tmp/${model}/mnt_32198/"
 wse_path="/processing/tmp/${model}/wse_32198/"
@@ -29,6 +24,7 @@ depth_coverage_output="/processing/tmp/${model}/depth_coverage_output/"
 hsub_output="/processing/tmp/${model}/hsub_output/"
 mkdir -p ${mnt_path} ${wse_path} ${tmp_path} ${depth_coverage_output} ${hsub_data_output}
 mnt=${mnt_path}`basename ${original_mnt}`
+final_folder=/data/aurige/results/${model}_$(date +%F)/
 
 echo "$(date +'%F %T') -- Starting pipeline for ${model}."
 echo "MNT used is '${original_mnt}'"
@@ -61,11 +57,9 @@ wse_res=`rasterio info --res ${one_wse_file}`
 mnt_crs=`rasterio info --crs ${original_mnt}`
 mnt_res=`rasterio info --res ${original_mnt}`
 
-echo "$(date +'%F %T') -- Preparing WSE files"
+echo "$(date +'%F %T') -- Preparing MNT file"
 echo "Original MNT CRS is ${mnt_crs}."
 echo "Original MNT resolution is ${mnt_res}."
-echo " "
-
 if [[ ${mnt_crs} = "EPSG:32198" ]]
 then
   echo "MNT is copied directly to ${mnt_path}"
@@ -77,6 +71,7 @@ else
   printf "Reprojected $(basename ${mnt})"
   date +'%F %T'
 fi
+echo " "
 
 # Encode detph coverage:
 num_scenarios=$(ls ${wse_path}*.tif | wc -l)
@@ -92,24 +87,22 @@ echo "$(date +'%F %T') -- Finished 'encode_coverage.py'"
 echo " "
 
 
-# # TODO: Get building file from psql using SAPIENS, +infocrue_segmentation +s
+# Get a building shapefile from psql using SAPIENS, +sectors +xref_building_sectors
 echo "$(date +'%F %T') -- Getting model building from sapiens"
-query << endOfQuery
-SELECT
-  distinct sapiens.geom, sapiens.batiment_i, sapiens.alt_premie
-FROM
-  sapiens, xref_sector_building, sectors
-WHERE
-  sapiens.batiment_i=xref_sector_building.building_id
-  AND xref_sector_building.sector_id=sectors.sector_id
-  AND sectors.model = '${model}';
-endOfQuery
+query="SELECT "
+query+="distinct sapiens.geom, sapiens.batiment_i, sapiens.alt_premie "
+query+="FROM "
+query+="sapiens, xref_sector_building, sectors "
+query+="WHERE "
+query+="sapiens.batiment_i=xref_sector_building.building_id "
+query+="AND xref_sector_building.sector_id=sectors.sector_id "
+query+="AND sectors.model = '${model}';"
 pgsql2shp -h $PSQL_DB_HOST -u $PSQL_DB_USER -p $PSQL_DB_PORT -P $PSQL_DB_PW \
   -f ${buildings} aurige "${query}"
 echo " "
 
 echo "$(date +'%F %T') -- Launching hsub_data.py"
-python3 -u ${pipeline_path}/get_hsub.py \
+python3 ${pipeline_path}/get_hsub.py \
   --wse "${wse_path}${file_mask}" \
   --buildings ${buildings} \
   --scenarios ${num_scenarios} \
@@ -119,13 +112,29 @@ python3 -u ${pipeline_path}/get_hsub.py \
 echo "$(date +'%F %T') -- Finished hsub_data.py"
 echo " "
 
-# TODO: load water data to psql
-# TODO: Move the model folder to aurige/results/
-# TODO: scp results to aurige.gci.ulaval.ca
+# Remove previous model data from aurige.infocrue_hsub:
+query="DELETE FROM infocrue_hsub "
+query+="WHERE model = '${model}';"
+echo "$(date +'%F %T') -- Removing previous hsub data for this model from the database."
+echo "Query = '${query}'"
+PGPASSWORD=$PSQL_DB_PW psql -U $PSQL_DB_USER -h $PSQL_DB_HOST \
+  -p $PSQL_DB_PORT  -d aurige -c "${query}"
+echo " "
 
-# } 2>&1 | tee -a ${log_file}
+# load hsub data to aurige.infocrue_hsub
+echo "$(date +'%F %T') -- Adding hsub data for this model to the database."
+query="\COPY infocrue_hsub (building_id,sc_idx,z_water,e_surf,e_isol,hsub,model) "
+query+="FROM '${hsub_output}/${model}_water_data.txt' "
+query+="WITH (FORMAT CSV, DELIMITER ',', HEADER TRUE);"
+echo "Query = '${query}'"
+PGPASSWORD=$PSQL_DB_PW psql -U $PSQL_DB_USER -h $PSQL_DB_HOST \
+  -p $PSQL_DB_PORT -d aurige -c "${query}"
+echo " "
 
-} | tee /processing/PyQGIS_pipelines/executions/0508_JC_test.log
+# Transfert analysis to /data/aurige/results/${model}_$(date +%F)/
+echo "$(date +'%F %T') -- Moving analysis folder to ${final_folder}"
+mv /processing/tmp/${model}/ ${final_folder}
+echo " "
 
-
-# TODO : Fix the log file.
+echo "$(date +'%F %T') -- Analysis pipeline for ${model} finished."
+} 2>&1 | tee ${log_file}

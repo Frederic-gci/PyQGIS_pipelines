@@ -40,8 +40,8 @@ if(pattern not in args.wse):
 
 # Hardcoded depth classes
 classes = [0, 0.3, 0.6, 0.9, 1.2, 1.5]
-suffixes = ["0to30cm", "30to60cm", "60to90cm",
-            "90to120cm", "120to150cm", "over150cm"]
+suffixes = ["0_to_30cm", "30_to_60cm", "60_to_90cm",
+            "90_to_120cm", "120_to_150cm", "over_150cm"]
 
 # Get some mnt and wse metadata
 with rasterio.open(args.mnt) as mnt:
@@ -91,7 +91,7 @@ bands = [np.full(shape=wse.shape, fill_value=255, dtype=np.uint8)
 
 for sc_idx in range(1, args.scenarios + 1):
     data_path = args.wse.format(sc_idx=sc_idx)
-    print(f'encode_depth: {utils.now()} Processing {data_path}')
+    print(f'encode_depth: {utils.now()} Processing scenario {sc_idx}.')
     data_file = rasterio.open(data_path)
     data = data_file.read(1)
     for class_idx in range(len(classes)):
