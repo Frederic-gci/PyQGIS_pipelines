@@ -96,18 +96,21 @@ fh.write(header)
 
 file_glob = args.wse.replace("{sc_idx}", "\*")
 
-print(f'get_hsub: {utils.now()} Creating filled coverage from WSE files.', flush=True)
+print(
+    f'get_hsub: {utils.now()} Creating filled coverage from WSE files.', flush=True)
 get_filled_coverage_command = (
     f'python3 runner.py '
     f'--function get_filled_coverage '
     f'--arguments \'{{"output_dir": "{args.tmp_dir}" }}\' '
     f'--files {file_glob} '
-    f'--threads 14'
+    f'--threads 6'
 )
 os.system(get_filled_coverage_command)
-print(f'get_hsub: {utils.now()} Finished the creation of filled_coverage files.', flush=True)
+print(
+    f'get_hsub: {utils.now()} Finished the creation of filled_coverage files.', flush=True)
 
-print(f'get_hsub: {utils.now()} Creating wse points from WSE files.', flush=True)
+print(
+    f'get_hsub: {utils.now()} Creating wse points from WSE files.', flush=True)
 get_wse_points_command = (
     f'python3 runner.py --function get_wse_points '
     f'--arguments \'{{"output_dir": "{args.tmp_dir}" }}\' '
@@ -115,7 +118,8 @@ get_wse_points_command = (
     f'--threads 16'
 )
 os.system(get_wse_points_command)
-print(f'get_hsub: {utils.now()} Finished the creation of  wse points files.', flush=True)
+print(
+    f'get_hsub: {utils.now()} Finished the creation of  wse points files.', flush=True)
 
 QgsApplication.setPrefixPath("/usr/share/qgis/", True)
 qgs = QgsApplication([], False)
@@ -124,23 +128,33 @@ with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     import processing
     from processing.core.Processing import Processing
+
 Processing.initialize()
 qgs.processingRegistry().addProvider(QgsNativeAlgorithms())
 
 def qgis_treatment():
     buildings = QgsVectorLayer(args.buildings, '', 'ogr')
+    ## Adding an empty field if using the grass7:v-distance algorithm
+    # buildings.dataProvider().addAttributes(
+    #     [QgsField('nearest_Z', QVariant.Double)])
+    # buildings.updateFields()
+    # buildings.selectAll()
+    original_ids = buildings.selectedFeatureIds()
+
     for sc_idx in range(1, args.scenarios + 1):
         wse_file = args.wse.format(sc_idx=sc_idx)
 
         path, basename = os.path.split(wse_file)
-        print(f'get_hsub: {utils.now()} Getting hsub data for scenario {sc_idx}.', flush=True)
+        print(
+            f'get_hsub: {utils.now()} Getting hsub data for scenario {sc_idx}.', flush=True)
         name, ext = os.path.splitext(basename)
-        filled_coverage =f'{args.tmp_dir}filled_coverage_{name}.shp' 
+        filled_coverage = f'{args.tmp_dir}filled_coverage_{name}.shp'
         wse_points = f'{args.tmp_dir}points_{name}.shp'
 
         wse = QgsRasterLayer(wse_file)
 
         # Get ids of buildings intersecting with filled coverage
+        print(f'   {utils.now()} Starting "native:selectbylocation".', flush=True)
         processing.run('native:selectbylocation', {
             'INPUT': buildings,
             'PREDICATE': [0],
@@ -150,6 +164,7 @@ def qgis_treatment():
         filled_ids = buildings.selectedFeatureIds()
 
         # Join attribute by nearest point
+        print(f'   {utils.now()} Starting "native:joinbynearest".', flush=True)
         buildings_with_nearest = f'{args.tmp_dir}/buildings_with_nearest_{sc_idx}.shp'
         parameters = {
             'INPUT': buildings,
@@ -163,9 +178,28 @@ def qgis_treatment():
         }
         processing.run("native:joinbynearest", parameters)
 
-        buildings_with_nearest = QgsVectorLayer(buildings_with_nearest, '', 'ogr')
+        # # Join attributes using grass7:v.distance instead of joinbynearest
+        # print(f'   {utils.now()} Starting "grass7:v.distance".', flush=True)
+        # buildings_with_nearest = f'{args.tmp_dir}/buildings_with_nearest_{sc_idx}.shp'
+        # parameters = {
+        #     'from': buildings,
+        #     'from_type': [3],  # area
+        #     'to': wse_points,
+        #     'to_type': [0],  # point
+        #     'dmax': -1,  # no maximum distance
+        #     'dmin': -1,  # no minimum distance
+        #     'upload': [6],  # attribute from the 'to' table
+        #     'column': 'nearest_Z',  # column where the uploaded value will be stored
+        #     'to_column': 'Z',  # attribute from the 'to' table to be copied
+        #     'from_output': buildings_with_nearest
+        # }
+        # processing.run('grass7:v.distance', parameters)
+
+        buildings_with_nearest = QgsVectorLayer(
+            buildings_with_nearest, '', 'ogr')
 
         # Add zonal stats to building
+        print(f'   {utils.now()} Starting "QgsZonalStatistics".', flush=True)
         zonalstats = QgsZonalStatistics(
             polygonLayer=buildings_with_nearest,
             rasterLayer=wse,
@@ -175,28 +209,32 @@ def qgis_treatment():
         )
         zonalstats.calculateStatistics(None)
 
+        print(f'   {utils.now()} Starting the getFeatures() loop.', flush=True)
         for building in buildings_with_nearest.getFeatures():
             feature_id = building.id()
+            if ( feature_id not in original_ids ): continue 
             building_id = int(building[building_id_attr])
             scenario_id = sc_idx
             max = building[f'{sc_idx}_Max']
             Esurf = max != qgis.core.NULL
             Eisol = feature_id in filled_ids and not Esurf
             if(Esurf):
-             zWater = building[f'{sc_idx}_Max']  # max from WSE file
+                zWater = building[f'{sc_idx}_Max']  # max from WSE file
             else:
-                zWater = building[f'{sc_idx}_Z']  # value from nearest point
+                zWater = building[f'{sc_idx}_Z']
+                # zWater = building['nearest_Z']  # value from nearest point if using v-distance
+
             Hsub = zWater - building[building_elev_attr]
+
             data = (
                 f'{str(building_id)},{str(scenario_id)},'
                 f'{str(zWater)},{str(Esurf)},{str(Eisol)},{str(Hsub)},'
                 f'"{str(args.model)}"\n'
             )
             fh.write(data)
-            del(feature_id,building_id,scenario_id,Esurf,Eisol,zWater,Hsub,data)
-        del(zonalstats,buildings_with_nearest,filled_ids,wse)
+            del(feature_id, building_id, scenario_id, Esurf, Eisol, zWater, Hsub, data)
+        print(f'   {utils.now()} after for getFeatures() loop.', flush=True)
 
 qgis_treatment()
-
 fh.close()
 qgs.exitQgis()
