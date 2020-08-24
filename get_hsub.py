@@ -139,7 +139,6 @@ def qgis_treatment():
     #     [QgsField('nearest_Z', QVariant.Double)])
     # buildings.updateFields()
     # buildings.selectAll()
-    original_ids = buildings.selectedFeatureIds()
 
     for sc_idx in range(1, args.scenarios + 1):
         wse_file = args.wse.format(sc_idx=sc_idx)
@@ -209,11 +208,15 @@ def qgis_treatment():
         )
         zonalstats.calculateStatistics(None)
 
+        seen_buildings=[]
         print(f'   {utils.now()} Starting the getFeatures() loop.', flush=True)
         for building in buildings_with_nearest.getFeatures():
-            feature_id = building.id()
-            if ( feature_id not in original_ids ): continue 
             building_id = int(building[building_id_attr])
+            # Break out of loop if the building has been studied already
+            # In which case, the zonal max will be used, so no new info will be collected anyway
+            if( building_id in seen_buildings): continue
+            seen_buildings = seen_buildings + [building_id]
+            feature_id = building.id()
             scenario_id = sc_idx
             max = building[f'{sc_idx}_Max']
             Esurf = max != qgis.core.NULL
@@ -221,11 +224,8 @@ def qgis_treatment():
             if(Esurf):
                 zWater = building[f'{sc_idx}_Max']  # max from WSE file
             else:
-                zWater = building[f'{sc_idx}_Z']
-                # zWater = building['nearest_Z']  # value from nearest point if using v-distance
-
+                zWater = building[f'{sc_idx}_Z'] # zWater = building['nearest_Z']  # value from nearest point if using v-distance
             Hsub = zWater - building[building_elev_attr]
-
             data = (
                 f'{str(building_id)},{str(scenario_id)},'
                 f'{str(zWater)},{str(Esurf)},{str(Eisol)},{str(Hsub)},'
@@ -233,7 +233,6 @@ def qgis_treatment():
             )
             fh.write(data)
             del(feature_id, building_id, scenario_id, Esurf, Eisol, zWater, Hsub, data)
-        print(f'   {utils.now()} after for getFeatures() loop.', flush=True)
 
 qgis_treatment()
 fh.close()
