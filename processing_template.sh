@@ -89,6 +89,10 @@ python3 -u ${pipeline_path}/encode_depth.py \
 echo "$(date +'%F %T') -- Finished 'encode_coverage.py'"
 echo " "
 
+## Transfert depth coverage output to dev
+echo "$(date +'%F %T') -- Transfering encoded coverage output to dev server."
+scp ${depth_coverage_output}/* ${CC_DEV_USER}@${CC_DEV_IP}:/opt/aurige/geodata/infocrue/coverage/
+
 
 ## Get a building shapefile from psql using SAPIENS, sectors xref_building_sectors
 echo "$(date +'%F %T') -- Getting model building from sapiens"
