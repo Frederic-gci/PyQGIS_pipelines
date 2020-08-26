@@ -1,10 +1,10 @@
 #!/usr/bin/bash
 
 ## Input parameters
-# model="model"
-# mnt_original="/path/to/mnt"
-# depth1='/path/to/depth/file/SC1.tif'
-# depth_glob='/path/to/depth_files/SC*.tif'
+model="model"
+mnt_original="/path/to/mnt"
+depth1='/path/to/depth/file/SC1.tif'
+depth_glob='/path/to/depth_files/SC*.tif'
 
 ## Example inputs for SLNO00381_LE:
 ## model="SLNO00381_LE"
@@ -16,11 +16,10 @@
 wse_path="/processing/tmp/preprocessing/${model}/wse/"
 mnt_path="/processing/tmp/preprocessing/${model}/mnt/"
 mnt=${mnt_path}`basename ${original_mnt}`
-log_file="/processing/PyQGIS_pipelines/executions/preprocessing_${model}_$(date +%F).log"
 final_folder=/data/aurige/results/preprocessing/${model}_$(date +%F)/
 mkdir -p ${mnt_path} ${wse_path}
 
-
+log_file="/processing/PyQGIS_pipelines/executions/logs/${model}_depth2wse_$(date +%F).log"
 {
 
 echo "$(date +'%F %T') -- Starting preprocessing depth2wse ${model}."

@@ -9,7 +9,7 @@ file_mask="SC{sc_idx}.tif"
 original_wse_files="/path_to_wse_files/*.tif"
 original_mnt="/path_to_mnt/mnt"
 
-log_file="/processing/PyQGIS_pipelines/executions/$(date +%F)_${model}.log"
+log_file="/processing/PyQGIS_pipelines/executions/logs/${model}_processing_$(date +%F).log"
 {
 
 ## Set up working environment

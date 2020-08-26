@@ -5,9 +5,6 @@ import numpy as np
 import argparse
 import utilities as utils
 
-# from https://gist.github.com/lpinner/13244b5c589cda4fbdfa89b30a44005b#file-resample_raster-py
-from resample_raster import resample_raster_xy as resample
-
 # Parameter definitions
 parser = argparse.ArgumentParser()
 parser.add_argument("--mnt",
@@ -64,27 +61,12 @@ if (mnt_bounds.left > wse_bounds.left or
         mnt_bounds.top < wse_bounds.top):
     exit("MNT extent should encompass WSE extent")
 if (wse_res[0] != 1 or wse_res[1] != 1):
-    print("Encode_coverage: WSE file cells are not 1m x 1m.")
+    print(f'Encode_coverage: WSE file cells are not 1m x 1m, but {wse_res[0]} by {wse_res[1]}.')
 if (mnt_res[0] != 1 or mnt_res[1] != 1):
-    print("encode_depth: Original MNT file cells are not 1m x 1m.")
+    print(f'encode_depth: Original MNT file cells are not 1m x 1m, but {mnt_res[0]} by {mnt_res[1]}.')
 
-# Extract the MNT data corresponding to the WSE rectangle.
 with rasterio.open(args.mnt) as mnt:
-    if (mnt_res[0] != wse_res[0] or mnt_res[1] != wse_res[1]):
-        print(
-            "encode_depth: MNT cell sizes differ from WSE cell sizes, " +
-            "the MNT will be resampled to match WSE.")
-        x_scale = wse_res[0] / mnt_res[0]
-        y_scale = wse_res[1] / mnt_res[1]
-        with resample(mnt, x_scale=x_scale, y_scale=y_scale) as scaled_mnt:
-            wse_rect_window = rasterio.windows.from_bounds(
-                *wse_bounds, transform=scaled_mnt.profile['transform']
-            )
-            mnt_rect = scaled_mnt.read(1, window=wse_rect_window)
-    else:
-        wse_rect_window = rasterio.windows.from_bounds(
-            *wse_bounds, transform=mnt.profile['transform'])
-        mnt_rect = mnt.read(1, window=wse_rect_window)
+    mnt_rect = mnt.read(1)
 
 bands = [np.full(shape=wse.shape, fill_value=255, dtype=np.uint8)
          for i in range(len(classes))]
