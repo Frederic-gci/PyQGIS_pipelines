@@ -152,16 +152,6 @@ def qgis_treatment():
 
         wse = QgsRasterLayer(wse_file)
 
-        # Get ids of buildings intersecting with filled coverage
-        print(f'   {utils.now()} Starting "native:selectbylocation".', flush=True)
-        processing.run('native:selectbylocation', {
-            'INPUT': buildings,
-            'PREDICATE': [0],
-            'INTERSECT': filled_coverage,
-            'METHOD': 0, }
-        )
-        filled_ids = buildings.selectedFeatureIds()
-
         # Join attribute by nearest point
         print(f'   {utils.now()} Starting "native:joinbynearest".', flush=True)
         buildings_with_nearest = f'{args.tmp_dir}/buildings_with_nearest_{sc_idx}.shp'
@@ -207,6 +197,17 @@ def qgis_treatment():
             stats=QgsZonalStatistics.Max
         )
         zonalstats.calculateStatistics(None)
+
+        ## Get ids of buildings intersecting with filled coverage
+        # I need to use buidings_with_nearest, since IDs might have been changed from the 'buildings' layer.
+        print(f'   {utils.now()} Starting "native:selectbylocation".', flush=True)
+        processing.run('native:selectbylocation', {
+            'INPUT': buildings_with_nearest,
+            'PREDICATE': [0],
+            'INTERSECT': filled_coverage,
+            'METHOD': 0, }
+        )
+        filled_ids = buildings_with_nearest.selectedFeatureIds()
 
         seen_buildings=[]
         print(f'   {utils.now()} Starting the getFeatures() loop.', flush=True)
