@@ -131,7 +131,7 @@ echo " "
 
 ## load hsub data to aurige.infocrue_hsub
 echo "$(date +'%F %T') -- Adding hsub data for this model to the database."
-query="\COPY infocrue_hsub (building_id,sc_idx,z_water,e_surf,e_isol,hsub,model) "
+query="\COPY infocrue_hsub (building_id,sc_idx,z_water,e_surf,e_isol,hsub,model,distance) "
 query+="FROM '${hsub_output}/${model}_water_data.txt' "
 query+="WITH (FORMAT CSV, DELIMITER ',', HEADER TRUE);"
 echo "Query = '${query}'"

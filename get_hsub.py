@@ -219,6 +219,7 @@ def qgis_treatment():
             feature_id = building.id()
             scenario_id = sc_idx
             max = building[f'{sc_idx}_Max']
+            distance = building['distance']
             Esurf = max != qgis.core.NULL
             Eisol = feature_id in filled_ids and not Esurf
             if(Esurf):
@@ -229,10 +230,10 @@ def qgis_treatment():
             data = (
                 f'{str(building_id)},{str(scenario_id)},'
                 f'{str(zWater)},{str(Esurf)},{str(Eisol)},{str(Hsub)},'
-                f'"{str(args.model)}"\n'
+                f'"{str(args.model)}",{str(distance)}\n'
             )
             fh.write(data)
-            del(feature_id, building_id, scenario_id, Esurf, Eisol, zWater, Hsub, data)
+            del(feature_id, building_id, scenario_id, Esurf, Eisol, zWater, Hsub, data, distance)
 
 qgis_treatment()
 fh.close()
