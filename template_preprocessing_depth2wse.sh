@@ -24,20 +24,24 @@ log_file="/processing/PyQGIS_pipelines/executions/logs/${model}_depth2wse_$(date
 
 echo "$(date +'%F %T') -- Starting preprocessing depth2wse ${model}."
 echo ""
+
+## Resample MNT file
 echo "$(date +'%F %T') -- Preparing MNT file"
 rasterio warp --like ${depth1} --resampling bilinear --overwrite ${original_mnt} -o ${mnt}
+echo "$(date +'%F %T') -- MNT file resampled 'like' ${depth1}"
 echo ""
 
-## Adding MNT and depth files
+## Add MNT and depth files in parallel
 echo "$(date +'%F %T') -- Adding MNT and depth files"
 rasterio_command="rasterio calc '(+ (read 1 1)  (read 2 1))' {} ${mnt} -o ${wse_path}{/} --overwrite"
-parallel -j 16 "${rasterio_command}" ::: ${depth_glob}
+parallel -j 16 --joblog /dev/stdout "${rasterio_command}" ::: ${depth_glob}
+echo "$(date +'%F %T') -- Finished adding MNT and depth files."
 echo ""
 
 ## Transfert analysis to /data/aurige/results/${model}_$(date +%F)/
 echo "$(date +'%F %T') -- Moving analysis folder to ${final_folder}"
 mv /processing/tmp/preprocessing/${model}/ ${final_folder}
-echo " "
+echo ""
 
 echo "$(date +'%F %T') -- Preprocessing depth2wse for ${model} finished."
 } 2>&1 | tee ${log_file}
