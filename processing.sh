@@ -2,12 +2,17 @@
 
 ## Notes:
 ## Rasterio needs a X display, otherwise, there are plenty of irrelevant error messages.
+## Copy the script template and fill the parameters,
+## or call it from a launching script using params in the launching command.
+# model="model"
+# file_mask="SC{sc_idx}.tif"
+# original_wse_files="/path_to_wse_files/*.tif"
+# original_mnt="/path_to_mnt/mnt"
 
-## Get the model specific informations:
-model="model"
-file_mask="SC{sc_idx}.tif"
-original_wse_files="/path_to_wse_files/*.tif"
-original_mnt="/path_to_mnt/mnt"
+model=$1
+file_mask=$2
+original_wse_files=$3
+original_mnt=$4
 
 ## Choose the steps to execute
 prepare_wse=1
@@ -19,7 +24,7 @@ get_hsub_data=1
 transfer_hsub_data=1
 move_result=1
 
-log_file="/processing/PyQGIS_pipelines/executions/logs/${model}_processing_$(date +%F).log"
+log_file="/processing/PyQGIS_pipelines/executions/logs/processing/${model}_$(date +%F).log"
 {
 
 ## Set up working environment
