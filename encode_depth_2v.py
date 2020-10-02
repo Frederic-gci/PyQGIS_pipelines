@@ -30,13 +30,14 @@ parser.add_argument("--v1_length",
                     help="Number of values of the first variable",
                     required=True,
                     type=int)
-parser.add_argument("--direction",
+parser.add_argument("--var_first_increased",
                     help="1: v1 increase first (sc1=(1,1), sc2=(2,1)); " +
                          "2: v2 increase first (sc1=(1,1), sc2=(1,2))",
                     required=False,
                     default=2,
                     type=int)
 args = parser.parse_args()
+
 
 # Parameter validation
 pattern = '{sc_idx}'
@@ -71,7 +72,7 @@ if (mnt_bounds.left > wse_bounds.left or
         mnt_bounds.top < wse_bounds.top):
     exit("MNT extent should encompass WSE extent")
 if (wse_res[0] != 1 or wse_res[1] != 1):
-    print(f'Encode_coverage: WSE file cells are not 1m x 1m, but {wse_res[0]} by {wse_res[1]}.')
+    print(f'encode_depth: WSE file cells are not 1m x 1m, but {wse_res[0]} by {wse_res[1]}.')
 if (mnt_res[0] != 1 or mnt_res[1] != 1):
     print(f'encode_depth: Original MNT file cells are not 1m x 1m, but {mnt_res[0]} by {mnt_res[1]}.')
 
@@ -90,10 +91,10 @@ bands = [[np.full(shape=wse.shape, fill_value=255, dtype=np.uint8)
 ## Loop over v2, encoding v1
 for v2 in range(v2_length):
     for v1 in range(v1_length): 
-        if (args.direction == 2):
-            sc_idx = (v1 * v1_length) + (v2 + 1)
+        if (args.var_first_increased == 2):
+            sc_idx = (v1 * v2_length) + (v2 + 1)
         else:
-            sc_idx = (v1 + 1) + (v2 * v2_length)
+            sc_idx = (v1 + 1) + (v2 * v1_length)
 
         data_path = args.wse.format(sc_idx=sc_idx)
         print(f'encode_depth: {utils.now()} Processing scenario {sc_idx}.')
@@ -106,7 +107,7 @@ for v2 in range(v2_length):
                 bands[v2][class_idx])
     for class_idx in range(len(classes)):
         output_file = rasterio.open(
-            f'{args.output_dir}/{args.model}_{v2}_{suffixes[class_idx]}.tif',
+            f'{args.output_dir}/{args.model}_{v2 + 1}_{suffixes[class_idx]}.tif',
             'w',
             driver='GTiff',
             width=wse_profile['width'],

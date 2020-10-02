@@ -61,7 +61,7 @@ if (mnt_bounds.left > wse_bounds.left or
         mnt_bounds.top < wse_bounds.top):
     exit("MNT extent should encompass WSE extent")
 if (wse_res[0] != 1 or wse_res[1] != 1):
-    print(f'Encode_coverage: WSE file cells are not 1m x 1m, but {wse_res[0]} by {wse_res[1]}.')
+    print(f'encode_depth: WSE file cells are not 1m x 1m, but {wse_res[0]} by {wse_res[1]}.')
 if (mnt_res[0] != 1 or mnt_res[1] != 1):
     print(f'encode_depth: Original MNT file cells are not 1m x 1m, but {mnt_res[0]} by {mnt_res[1]}.')
 

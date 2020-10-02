@@ -13,6 +13,9 @@ model=$1
 file_mask=$2
 original_wse_files=$3
 original_mnt=$4
+num_var="${5:-1}"
+v1_length="${6:-0}"
+encode_depth_var_first_increased="${7:-0}"
 
 ## Choose the steps to execute
 prepare_wse=1
@@ -107,13 +110,25 @@ echo ""
 if (( encode_depth ))
 then
   echo "$(date +'%F %T') -- Launching 'encode_coverage.py'"
-  python3 -u ${pipeline_path}/encode_depth.py \
-    --mnt ${mnt} \
-    --wse "${wse_path}${file_mask}" \
-    --scenarios ${num_scenarios} \
-    --model ${model} \
-    --output_dir ${depth_coverage_output}
-  echo "$(date +'%F %T') -- Finished 'encode_coverage.py'"
+  if (( num_var == 2 ))
+  then
+    python3 -u ${pipeline_path}/encode_depth_2v.py \
+      --mnt ${mnt} \
+      --wse "${wse_path}${file_mask}" \
+      --scenarios ${num_scenarios} \
+      --model ${model} \
+      --output_dir ${depth_coverage_output} \
+      --v1_length ${v1_length} \
+      --var_first_increased ${encode_depth_var_first_increased}
+  else
+    python3 -u ${pipeline_path}/encode_depth.py \
+      --mnt ${mnt} \
+      --wse "${wse_path}${file_mask}" \
+      --scenarios ${num_scenarios} \
+      --model ${model} \
+      --output_dir ${depth_coverage_output}
+    echo "$(date +'%F %T') -- Finished 'encode_coverage.py'"
+  fi
 else
   echo "Skipped encoding of depth coverage."
 fi
