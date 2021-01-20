@@ -149,11 +149,11 @@ if (( retrieve_buildings ))
 then
   echo "$(date +'%F %T') -- Retrieve buildings from SAPIENS database"
   query="SELECT "
-  query+="distinct sapiens.geom, sapiens.batiment_i, sapiens.alt_premie "
+  query+="distinct sap_bati.geom, sap_bati.id_batimen as batiment_i, sap_bati.alt_premie "
   query+="FROM "
-  query+="sapiens, xref_sector_building, sectors "
+  query+="sap_bati, xref_sector_building, sectors "
   query+="WHERE "
-  query+="sapiens.batiment_i=xref_sector_building.building_id "
+  query+="sap_bati.id_batimen=xref_sector_building.building_id "
   query+="AND xref_sector_building.sector_id=sectors.sector_id "
   query+="AND sectors.model = '${model}';"
   pgsql2shp -h $PSQL_DB_HOST -u $PSQL_DB_USER -p $PSQL_DB_PORT -P $PSQL_DB_PW \
